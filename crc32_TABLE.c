@@ -1,8 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
 // Credit to wikipedia for the CRC32 algorithm
+typedef union {
+    uint32_t crc;
+    uint8_t c[4];
+} crc_32_t;
+
 
 unsigned char buffer[3000];
 FILE *ptr;
@@ -100,19 +106,21 @@ int main(int argc, char** argv) {
     
     int size = -1;
 
-    unsigned int crc = 0xFFFFFFFF;
+    crc_32_t crc;
+    crc.crc = 0xFFFFFFFF;
+
     while(size = fread(buffer,1,64,ptr)) {
         printf("Read %d bytes\n", size);
         
-        crc = CRC32_cont(buffer, size, crc);
-        crc &= 0xFFFFFFFF;
+        crc.crc = CRC32_cont(buffer, size, crc.crc);
+        crc.crc &= 0xFFFFFFFF;
         
     }
     fclose(ptr);
 
     // crc = reverse_bits(crc);
-    crc = (~crc) & 0xFFFFFFFF;
-    printf("CRC32: %X\n", crc);
+    crc.crc = (~crc.crc) & 0xFFFFFFFF;
+    printf("CRC32: %X\n", crc.crc);
 
     ptr = fopen(filename,"ab");
     if (ptr==NULL) {
@@ -120,7 +128,11 @@ int main(int argc, char** argv) {
         return 1;
     }
     
-    fwrite(&crc, sizeof(crc), 1, ptr);
+    for( int i = 0 ; i < 4 ; i++ ) {
+        uint8_t c = crc.c[i];
+        fwrite(&c, sizeof(c), 1, ptr);
+    }
+
     printf("Appended CRC32 to %s\n", filename);
     fclose(ptr);
 
